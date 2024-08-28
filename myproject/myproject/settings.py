@@ -129,5 +129,5 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # GraphQL 설정 추가
 GRAPHENE = {
-    "SCHEMA": "myproject.schema.schema"  # 아래에서 정의할 스키마 파일을 참조
+    "SCHEMA": "youtub.schema.schema"  # 아래에서 정의할 스키마 파일을 참조
 }

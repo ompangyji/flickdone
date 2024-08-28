@@ -1,15 +1,20 @@
 import graphene
+import base64  # base64도 임포트 필요
 from graphene_django.types import DjangoObjectType
 from .models import youtub
 import os
 import random
 
-class youtubType(DjangoObjectType):
-    class Meta:
-        model = youtub
+# MediaFile 클래스 정의
+class MediaFile(graphene.ObjectType):
+    fileName = graphene.String()
+    fileType = graphene.String()
+    fileContent = graphene.String()
 
+# UploadRandomFiles 클래스 정의
 class UploadRandomFiles(graphene.Mutation):
     success = graphene.Boolean()
+    mediaFiles = graphene.List(MediaFile)
 
     def mutate(self, info):
         # 파일이 저장된 디렉토리
@@ -23,6 +28,7 @@ class UploadRandomFiles(graphene.Mutation):
         selected_number = random.choice(list(file_numbers))
 
         # 선택된 번호와 일치하는 파일들을 처리
+        media_files = []
         file_set = {
             'image': None,
             'audio': None,
@@ -34,25 +40,33 @@ class UploadRandomFiles(graphene.Mutation):
                 file_path = os.path.join(data_dir, file_name)
                 _, ext = os.path.splitext(file_name)
 
-                if ext == '.jpg' or ext == '.jpeg' or ext == '.png':
+                if ext in ['.jpg', '.jpeg', '.png']:
                     file_set['image'] = file_path
                 elif ext == '.mp3':
                     file_set['audio'] = file_path
                 elif ext == '.txt':
                     file_set['text'] = file_path
 
-        # MediaFile 모델에 파일 저장
         for file_type, file_path in file_set.items():
             if file_path:
-                MediaFile.objects.create(
-                    file_name=os.path.basename(file_path),
-                    file_type=file_type,
-                    file_path=file_path
-                )
+                with open(file_path, 'rb') as f:
+                    if file_type == 'text':
+                        file_content = f.read().decode('utf-8')  # 텍스트 파일인 경우 UTF-8로 디코딩
+                    else:
+                        file_content = base64.b64encode(f.read()).decode('utf-8')  # 바이너리 파일은 base64로 인코딩
 
-        return UploadRandomFiles(success=True)
+                media_files.append(MediaFile(
+                    fileName=os.path.basename(file_path),
+                    fileType=file_type,
+                    fileContent=file_content
+                ))
+
+        return UploadRandomFiles(success=True, mediaFiles=media_files)
 
 class Mutation(graphene.ObjectType):
     upload_random_files = UploadRandomFiles.Field()
 
-schema = graphene.Schema(mutation=Mutation)
+class Query(graphene.ObjectType):
+    hello = graphene.String(default_value="Hello, World!")
+
+schema = graphene.Schema(query=Query, mutation=Mutation)
