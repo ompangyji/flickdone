@@ -6,38 +6,48 @@ import mysql.connector
 import sys
 
 def transform_data(title, audio_file, thumbnail_file):
-    # Spark 세션 생성
-    spark = SparkSession.builder \
-        .appName("YouTubeMultimodalETL") \
-        .getOrCreate()
+    try:
+        # Spark 세션 생성
+        spark = SparkSession.builder \
+            .appName("YouTubeMultimodalETL") \
+            .getOrCreate()
 
-    # 제목 변환: 제목의 길이 계산
-    data = [(title,)]
-    df = spark.createDataFrame(data, ['title'])
-    df = df.withColumn('title_length', F.length(F.col('title')))
-    
-    # 오디오 변환: MP3로 변환
-    audio = AudioSegment.from_file(audio_file)
-    audio_export_path = "/tmp/audio_converted.mp3"
-    audio.export(audio_export_path, format='mp3')
-    
-    # 이미지 변환: 크기 조정
-    img = Image.open(thumbnail_file)
-    img = img.resize((128, 128))
-    thumbnail_resized_path = "/tmp/thumbnail_resized.jpg"
-    img.save(thumbnail_resized_path)
-    
-    # 데이터프레임 출력 확인
-    df.show()
+        # 제목 변환: 제목의 길이 계산 및 오디오, 이미지 경로 추가
+        data = [(title, audio_file, thumbnail_file)]
+        df = spark.createDataFrame(data, ['title', 'audio_file', 'thumbnail_file'])
+        df = df.withColumn('title_length', F.length(F.col('title')))
+        
+        # 오디오 변환: MP3로 변환
+        audio = AudioSegment.from_file(audio_file)
+        audio_export_path = "/tmp/audio_converted.mp3"
+        audio.export(audio_export_path, format='mp3')
 
-    # 변환된 데이터 MySQL에 적재
-    df.write.format('jdbc').options(
-        url='jdbc:mysql://localhost/your_database',
-        driver='com.mysql.cj.jdbc.Driver',
-        dbtable='youtube_titles',
-        user='your_username',
-        password='your_password'
-    ).mode('append').save()
+        # 이미지 변환: 크기 조정
+        img = Image.open(thumbnail_file)
+        img = img.resize((128, 128))
+        thumbnail_resized_path = "/tmp/thumbnail_resized.jpg"
+        img.save(thumbnail_resized_path)
+
+        # 변환된 오디오 파일 경로 및 썸네일 경로 업데이트
+        df = df.withColumn('audio_file', F.lit(audio_export_path)) \
+               .withColumn('thumbnail_file', F.lit(thumbnail_resized_path))
+
+        # 데이터프레임 출력 확인
+        df.show()
+
+        # 변환된 데이터 MySQL에 적재
+        df.write.format('jdbc').options(
+            url='jdbc:mysql://localhost/flickdone',
+            driver='com.mysql.cj.jdbc.Driver',
+            dbtable='youtube_titles',
+            user='root',
+            password='root1234'
+        ).mode('append').save()
+
+    except Exception as e:
+        print(f"Error in transform_data: {e}")
+    finally:
+        spark.stop()
 
 if __name__ == "__main__":
     title = sys.argv[1]
