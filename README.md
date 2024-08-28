@@ -21,6 +21,15 @@ sudo /etc/init.d/mysql start
 sudo mysql -u root -p (최초 패스워드 입력시 엔터)
 mysql> alter user 'root'@'localhost' identified with mysql_native_password by 'root1234'; 
 
+ wget https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-j_9.0.0-1ubuntu24.04_all.deb
+sudo apt install ./mysql-connector-j_9.0.0-1ubuntu24.04_all.deb
+ls /usr/share/java/mysql-connector-j*.jar
+sudo cp /usr/share/java/mysql-connector-java-9.0.0.jar $SPARK_HOME/jars/
+export SPARK_CLASSPATH=$SPARK_HOME/jars/mysql-connector-java-9.0.0.jar
+
+
+
+
 ## Python 및 가상환경 설치
 sudo apt-get install -y python3 python3-pip python3-venv
 python3 -m venv airflow_venv
@@ -54,7 +63,10 @@ airflow db init
 airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@example.com --password admin1234
 ##### 설치 확인
 airflow webserver --port 8080
+Airflow 웹 UI는 `http://localhost:8080`에서 접속
+
 airflow scheduler
+
 
 ### Spark 설치
 wget 'apache spark 다운로드페이지에서 링크참고'
@@ -80,4 +92,36 @@ source ~/.bashrc
 
 ##### 설치 완료 체크
 pyspark
+
+#### Spark History Server 설치
+cd spark-<version>-bin-hadoop<version>
+cp conf/spark-defaults.conf.template conf/spark-defaults.conf
+vi conf/spark-defaults.conf
+아래내용 추가
+spark.eventLog.enabled           true
+spark.eventLog.dir               file:///tmp/spark-events
+spark.history.fs.logDirectory    file:///tmp/spark-events
+mkdir -p /tmp/spark-events
+chmod -R 755 /tmp/spark-events
+/opt/spark/sbin/start-history-server.sh
+
+##### 크롬, 크롬드라이버
+sudo apt install ./chrome_114_amd64.deb
+google-chrome --version
+  
+wget https://chromedriver.storage.googleapis.com/114.0.5735.90/chromedriver_linux64.zip
+unzip chromedriver_linux64.zip
+sudo mv chromedriver /usr/local/bin/chromedriver
+sudo chmod +x /usr/local/bin/chromedriver
+
+#### Django, GraphQL 설치
+pip install django
+pip install gql
+pip install graphene-django
+
+장고 세팅
+django-admin startproject myproject
+python manage.py startapp youtub
+python manage.py makemigrations youtub
+python manage.py migrate
 
